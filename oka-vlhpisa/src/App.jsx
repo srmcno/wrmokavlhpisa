@@ -3038,6 +3038,7 @@ function App() {
               const orgName = settings.orgName || "Our water system";
               
               const fiveYrGap = fiveYearGap;
+              const critCount = activeAssets.filter(a => a && a.isCritical).length;
               const lines = [];
               lines.push(`As of ${today}, ${orgName} manages ${numberFormatter.format(stats.totalQty)} active infrastructure assets with a combined replacement value of ${currencyFormatter.format(stats.value)}. The average asset condition across the system is ${stats.avgCond.toFixed(1)} out of 5.`);
               if (stats.pastLife > 0 || stats.highRisk > 0) lines.push(`Currently, ${stats.pastLife} asset${stats.pastLife === 1 ? " is" : "s are"} past ${stats.pastLife === 1 ? "its" : "their"} expected useful life, and ${stats.highRisk} asset${stats.highRisk === 1 ? "" : "s"} score${stats.highRisk === 1 ? "s" : ""} as high-risk. ${stats.replace5} asset${stats.replace5 === 1 ? "" : "s"} will require replacement within the next five years.`);
