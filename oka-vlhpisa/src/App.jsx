@@ -1319,6 +1319,134 @@ function StatusIndicator() {
 // Main App Component
 
 
+function TutorialSpotlight({ step, current, total, isFirst, isLast, onPrev, onNext, onClose }) {
+  const [rect, setRect] = useState(null);
+  const [cardPos, setCardPos] = useState(null);
+  const [arrow, setArrow] = useState("top");
+  const cardRef = useRef(null);
+
+  useEffect(() => {
+    if (!step || !step.target) { setRect(null); setCardPos(null); return; }
+    let cancelled = false;
+    let tries = 0;
+    let cleanup = null;
+    const poll = () => {
+      if (cancelled) return;
+      const el = document.querySelector(step.target);
+      if (!el) {
+        if (tries++ < 30) { setTimeout(poll, 90); return; }
+        setRect(null); setCardPos(null); return;
+      }
+      try { el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" }); } catch (e) {}
+      const measure = () => {
+        const r = el.getBoundingClientRect();
+        if (!r.width && !r.height) return;
+        const pad = 6;
+        setRect({ top: r.top - pad, left: r.left - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+        const cardW = 460, cardH = 260, gap = 16;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        // Target is huge (taller than viewport, or covers most of it): skip pointing and use a floating card.
+        const targetTooBig = r.height > vh * 0.8 || r.width > vw * 0.8;
+        if (targetTooBig) {
+          setCardPos({ top: Math.max(16, vh - cardH - 32), left: Math.max(16, vw - cardW - 32) });
+          setArrow("none");
+          return;
+        }
+        const spaceBelow = vh - (r.bottom + gap);
+        const spaceAbove = r.top - gap;
+        const spaceRight = vw - (r.right + gap);
+        const spaceLeft = r.left - gap;
+        let placement = "bottom";
+        if (spaceBelow >= cardH) placement = "bottom";
+        else if (spaceAbove >= cardH) placement = "top";
+        else if (spaceRight >= cardW) placement = "right";
+        else if (spaceLeft >= cardW) placement = "left";
+        else placement = spaceBelow >= spaceAbove ? "bottom" : "top";
+        let top, left, arr;
+        const clampLeft = (x) => Math.min(vw - cardW - 16, Math.max(16, x));
+        const clampTop = (y) => Math.min(vh - cardH - 16, Math.max(16, y));
+        if (placement === "bottom") { top = clampTop(r.bottom + gap); left = clampLeft(r.left + r.width / 2 - cardW / 2); arr = "top"; }
+        else if (placement === "top") { top = clampTop(r.top - cardH - gap); left = clampLeft(r.left + r.width / 2 - cardW / 2); arr = "bottom"; }
+        else if (placement === "right") { top = clampTop(r.top + r.height / 2 - cardH / 2); left = clampLeft(r.right + gap); arr = "left"; }
+        else { top = clampTop(r.top + r.height / 2 - cardH / 2); left = clampLeft(r.left - cardW - gap); arr = "right"; }
+        setCardPos({ top, left }); setArrow(arr);
+      };
+      setTimeout(measure, 350);
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      window.addEventListener("scroll", measure, true);
+      window.addEventListener("resize", measure);
+      cleanup = () => { ro.disconnect(); window.removeEventListener("scroll", measure, true); window.removeEventListener("resize", measure); };
+    };
+    poll();
+    return () => { cancelled = true; if (cleanup) cleanup(); };
+  }, [step && step.id, step && step.target]);
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight" || e.key === "Enter") onNext();
+      else if (e.key === "ArrowLeft") { if (!isFirst) onPrev(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isFirst, onNext, onPrev, onClose]);
+
+  if (!step) return null;
+  const pct = ((current + 1) / total) * 100;
+  const hasTarget = !!rect && !!cardPos;
+  const cardStyle = hasTarget ? { top: cardPos.top, left: cardPos.left } : {};
+  const cardCls = "tut-card" + (hasTarget ? "" : " centered");
+
+  return <>
+    <div className="tut-backdrop no-print" onClick={onClose} />
+    {hasTarget && <div className="tut-spotlight no-print" style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }} />}
+    <div ref={cardRef} className={cardCls + " no-print"} style={cardStyle} role="dialog" aria-label={step.title}>
+      {hasTarget && arrow !== "none" && <div className={`tut-card-arrow ${arrow}`} style={
+        arrow === "top" || arrow === "bottom"
+          ? { left: Math.max(18, Math.min(460 - 22, (rect.left + rect.width / 2) - cardPos.left - 7)) }
+          : { top: Math.max(18, Math.min(260 - 22, (rect.top + rect.height / 2) - cardPos.top - 7)) }
+      } />}
+      <div className="tut-progress-bar" style={{ borderRadius: "16px 16px 0 0" }}>
+        <div className="tut-progress-fill" style={{ width: pct + "%" }} />
+      </div>
+      <div className="p-5">
+        <div className="flex items-start gap-3">
+          <div className={`tut-icon-box ${step.iconBg || "bg-[#1E3D3B]"} text-white`}>
+            <Icon name={step.icon || "bookOpen"} size={22} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold text-slate-400 tracking-wide">Step {current + 1} of {total}</div>
+            <div className="text-lg font-semibold text-slate-900 mt-0.5 leading-snug">{step.title}</div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex-shrink-0" title="Close (Esc)"><Icon name="x" size={18} /></button>
+        </div>
+        <div className="mt-3 text-sm text-slate-700 leading-relaxed">{step.body}</div>
+        {step.bullets && <ul className="mt-3 space-y-1.5">
+          {step.bullets.map((b, i) =>
+            <li key={i} className="flex items-start gap-2 text-sm text-slate-700 leading-relaxed">
+              <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-[#76B900] flex-shrink-0" />
+              <span>{b}</span>
+            </li>
+          )}
+        </ul>}
+        {step.tip && <div className="tut-tip mt-3"><div className="flex-shrink-0"><Icon name="info" size={16} /></div><div>{step.tip}</div></div>}
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+          <button onClick={onClose} className="text-sm text-slate-500 hover:text-slate-700 font-medium">Skip tour</button>
+          <div className="flex items-center gap-2">
+            {!isFirst && <button onClick={onPrev} className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 hover:bg-slate-50 font-medium text-slate-700">Back</button>}
+            {isLast
+              ? <button onClick={onClose} className="px-4 py-1.5 rounded-lg text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Finish</button>
+              : <button onClick={onNext} className="px-4 py-1.5 rounded-lg text-sm bg-[#1E3D3B] hover:bg-[#152B2A] text-white font-semibold flex items-center gap-1">{isFirst ? "Start tour" : "Next"} <Icon name="chevronRight" size={14} /></button>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </>;
+}
+
 function App() {
   const [liveAssets, _setLiveAssets] = useLocalStorageState(KEYS.assets, []);
   const [liveSettings, _setLiveSettings] = useLocalStorageState(KEYS.settings, DEFAULT_SETTINGS);
@@ -1979,7 +2107,7 @@ function App() {
     showToast(`${meta.name} loaded into sandbox mode. Your real saved data was not changed.`, "warn");
   }
   const TUTORIAL_STEPS = useMemo(() => [
-    { id: "welcome", icon: "award", iconBg: "bg-[#1E3D3B]", nav: "dashboard", title: "Welcome to Oka Vlhpisa",
+    { id: "welcome", icon: "award", iconBg: "bg-[#1E3D3B]", nav: "dashboard", target: null, title: "Welcome to Oka Vlhpisa",
       body: "This is a simple record-keeping app for public water systems. You can list the equipment you own, track when each piece was serviced, and see at a glance what needs attention. The name is Choctaw for \u201cwater measured.\u201d",
       bullets: [
         "Your data stays on this computer. Nothing is sent online.",
@@ -1987,7 +2115,7 @@ function App() {
         "A short tour of each tab follows. It takes about two minutes."
       ],
       tip: "You can close this tour any time with the X in the corner, and come back later from the Tour button in the header." },
-    { id: "basic-advanced", icon: "gear", iconBg: "bg-[#76B900]", nav: "settings", title: "Basics or Advanced \u2014 your choice",
+    { id: "basic-advanced", icon: "gear", iconBg: "bg-[#76B900]", nav: "settings", target: "[data-tut=\"toggle-basic-advanced\"]", title: "Basics or Advanced \u2014 your choice",
       body: "In the top navigation you\u2019ll see a Basics / Advanced switch. Basics shows only the tabs most people need day to day. Advanced turns on forecasting, reports, and financial planning features.",
       bullets: [
         "Basics shows: Overview, Assets, Service & Calendar, Import / Backup, Settings.",
@@ -1995,7 +2123,7 @@ function App() {
         "You can flip between them any time. No data is lost."
       ],
       tip: "If this is your first time using the app, leave it on Basics. Switch to Advanced when you\u2019re comfortable." },
-    { id: "dashboard", icon: "search", iconBg: "bg-emerald-600", nav: "dashboard", title: "Overview \u2014 your daily check-in",
+    { id: "dashboard", icon: "search", iconBg: "bg-emerald-600", nav: "dashboard", target: "[data-tut=\"dashboard-body\"]", title: "Overview \u2014 your daily check-in",
       body: "The Overview page summarizes your system in one screen. It\u2019s the page worth opening each morning.",
       bullets: [
         "Total equipment count and what it would cost to replace today.",
@@ -2004,7 +2132,7 @@ function App() {
         "Tap any alert to jump straight to those items in your Assets list."
       ],
       tip: "The more complete your asset information, the more useful this page becomes." },
-    { id: "assets", icon: "plus", iconBg: "bg-blue-600", nav: "assets", title: "Assets \u2014 your equipment list",
+    { id: "assets", icon: "plus", iconBg: "bg-blue-600", nav: "assets", target: "[data-tut=\"btn-add-asset\"]", title: "Assets \u2014 your equipment list",
       body: "The Assets tab is your master list of pumps, tanks, meters, wells, and so on. Add things as you find them. It does not have to be perfect the first time.",
       bullets: [
         "Use Add asset to enter one item. You only need a name to start.",
@@ -2014,7 +2142,7 @@ function App() {
         "Search, filter by category, or sort by risk to find things fast."
       ],
       tip: "Have a spreadsheet already? The Import / Backup tab can bring it in. We\u2019ll cover that in a moment." },
-    { id: "service-calendar", icon: "calendar", iconBg: "bg-indigo-600", nav: "service", title: "Service & Calendar \u2014 keep maintenance on track",
+    { id: "service-calendar", icon: "calendar", iconBg: "bg-indigo-600", nav: "service", target: "[data-tut=\"nav-service-cal\"]", title: "Service & Calendar \u2014 keep maintenance on track",
       body: "This tab has two views. The Service log records what was done. The Calendar shows what\u2019s coming up. Both update automatically from your assets.",
       bullets: [
         "On each asset, set Last Maintenance (date last serviced) and Maintenance Interval (how often, in months).",
@@ -2023,7 +2151,7 @@ function App() {
         "Every service entry links back to its asset, so you build up a full history over time."
       ],
       tip: "If the Calendar looks empty, it\u2019s usually because Last Maintenance and Interval have not been filled in yet." },
-    { id: "data", icon: "database", iconBg: "bg-cyan-600", nav: "data", title: "Import / Backup \u2014 protect your work",
+    { id: "data", icon: "database", iconBg: "bg-cyan-600", nav: "data", target: "[data-tut=\"btn-import\"]", title: "Import / Backup \u2014 protect your work",
       body: "All of your data lives in this browser. If you clear browser data or switch computers, it\u2019s gone unless you have a backup. This tab is how you make one.",
       bullets: [
         "Export JSON backup writes every record to a single file. Save it on a USB drive or email it to yourself.",
@@ -2032,7 +2160,7 @@ function App() {
         "On supported browsers, Autosave can keep a backup file on disk in sync automatically."
       ],
       tip: "Export a JSON backup at least once a month, and always before you import a big batch of new data." },
-    { id: "scenarios", icon: "flask", iconBg: "bg-amber-700", nav: "dashboard", title: "Scenarios \u2014 a safe place to practice (Advanced)",
+    { id: "scenarios", icon: "flask", iconBg: "bg-amber-700", nav: "dashboard", target: "[data-tut=\"toggle-basic-advanced\"]", title: "Scenarios \u2014 a safe place to practice (Advanced)",
       body: "Scenarios appear when Advanced mode is on. They give you a sandbox copy of your data where you can try things without changing your real records.",
       bullets: [
         "Load a sample water system to explore the app with realistic data.",
@@ -2041,7 +2169,7 @@ function App() {
         "Nothing you do in a scenario touches your saved records."
       ],
       tip: "If you\u2019re worried about breaking something, try it in Scenarios first." },
-    { id: "forecast-reports", icon: "database", iconBg: "bg-purple-600", nav: "forecast", title: "Forecast & Reports \u2014 for planning and funders (Advanced)",
+    { id: "forecast-reports", icon: "database", iconBg: "bg-purple-600", nav: "forecast", target: "[data-tut=\"toggle-basic-advanced\"]", title: "Forecast & Reports \u2014 for planning and funders (Advanced)",
       body: "In Advanced mode, two more views open up. Forecast projects future replacement and operating costs. Reports turns your records into something you can email or print.",
       bullets: [
         "Forecast combines capital replacement, labor, maintenance, and overhead over 10 to 30 years.",
@@ -2050,7 +2178,7 @@ function App() {
         "A Data Completeness score tells you how trustworthy each year\u2019s number is."
       ],
       tip: "The forecast is only as accurate as your asset data. Filling in install year, useful life, and replacement cost makes a big difference." },
-    { id: "settings", icon: "gear", iconBg: "bg-slate-700", nav: "settings", title: "Settings \u2014 the basics are enough",
+    { id: "settings", icon: "gear", iconBg: "bg-slate-700", nav: "settings", target: "[data-tut=\"btn-settings\"]", title: "Settings \u2014 the basics are enough",
       body: "You only need a few fields in Settings to get started. Everything else is optional and mostly for Advanced users.",
       bullets: [
         "Organization name and PWS ID appear on every export and report.",
@@ -2059,7 +2187,7 @@ function App() {
         "You can restart this tour any time from the Settings page."
       ],
       tip: "A Health Check panel on this page tells you if browser storage, photo folders, and autosave are ready to go." },
-    { id: "done", icon: "check", iconBg: "bg-emerald-600", nav: null, title: "A simple first-week plan",
+    { id: "done", icon: "check", iconBg: "bg-emerald-600", nav: null, target: null, title: "A simple first-week plan",
       body: "You\u2019ve seen everything. Here\u2019s what to actually do next, in order:",
       bullets: [
         "Enter your organization name and PWS ID in Settings.",
@@ -2769,14 +2897,14 @@ function App() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 app-header-inner">
         <div className="header-top-row">
           <Logo orgName={settings.orgName} pwsId={settings.pwsId} sealOk={sealOk} />
-          <div className="header-actions">
+          <div className="header-actions" data-tut="header-actions">
             {!basicMode && <button onClick={toggleScenarioMode} className="hdr-btn" style={isScenarioMode ? {background:"#d97706",borderColor:"#f59e0b",color:"white"} : {}} title={isScenarioMode ? "Leave safe scenario mode" : "Open safe sample scenarios and what-if planning"}><Icon name="flask" size={14} /> {isScenarioMode ? "Leave Scenario" : "Scenarios"}</button>}
-            <button onClick={() => setImportModalOpen(true)} className="hdr-btn" title="Import / Restore / Backup"><Icon name="database" size={14} /> Import / Backup</button>
+            <button onClick={() => setImportModalOpen(true)} className="hdr-btn" data-tut="btn-import" title="Import / Restore / Backup"><Icon name="database" size={14} /> Import / Backup</button>
             {!basicMode && <button onClick={() => exportExcel()} className="hdr-btn" title="Export to Excel"><Icon name="download" size={14} /> Export</button>}
             {!basicMode && <button onClick={() => window.print()} className="hdr-btn" title="Print current view"><Icon name="printer" size={14} /> Print</button>}
-            <button onClick={() => setView("settings")} className="hdr-btn" title="Settings"><Icon name="gear" size={14} /> Settings</button>
-            <button onClick={() => startTutorial()} className="hdr-btn" title="Guided tour"><Icon name="bookOpen" size={14} /> Tour</button>
-            <button onClick={() => openHelp("quickstart")} className="hdr-btn gold" title="Help & changelog"><Icon name="help" size={14} /> Help</button>
+            <button onClick={() => setView("settings")} className="hdr-btn" data-tut="btn-settings" title="Settings"><Icon name="gear" size={14} /> Settings</button>
+            <button onClick={() => startTutorial()} className={`hdr-btn${!tutorialDone && assets.length === 0 ? " nudge" : ""}`} data-tut="btn-tour" title="Guided tour"><Icon name="bookOpen" size={14} /> Tour</button>
+            <button onClick={() => openHelp("quickstart")} className="hdr-btn gold" data-tut="btn-help" title="Help & changelog"><Icon name="help" size={14} /> Help</button>
           </div>
         </div>
       </div>
@@ -2790,13 +2918,13 @@ function App() {
           const overviewViews = ["dashboard","reports","forecast"];
           const serviceCalViews = ["service","calendar"];
           const isActive = groupKey === "overview" ? overviewViews.includes(view) : groupKey === "service-cal" ? serviceCalViews.includes(view) : view === groupKey;
-          return <div key={groupKey} className={`nav-step ${isActive ? "active" : ""}`} onClick={() => {
+          return <div key={groupKey} data-tut={`nav-${groupKey}`} className={`nav-step ${isActive ? "active" : ""}`} onClick={() => {
             if (groupKey === "overview") setView(overviewTab || "dashboard");
             else if (groupKey === "service-cal") setView(serviceCalTab || "service");
             else setView(groupKey);
           }}>{label}</div>;
         })}
-        <div className="nav-step" style={{marginLeft:"auto",fontSize:"11px",gap:"4px",opacity:0.85}} onClick={() => setPrefs(p => ({...p, basicMode: !p.basicMode}))} title={basicMode ? "Show all tabs (advanced features)" : "Simplify to basics only"}><span style={{display:"inline-block",width:"28px",height:"16px",borderRadius:"8px",background:basicMode?"#76B900":"#64748b",position:"relative",transition:"background .2s",verticalAlign:"middle"}}><span style={{position:"absolute",top:"2px",left:basicMode?"2px":"14px",width:"12px",height:"12px",borderRadius:"50%",background:"white",transition:"left .2s"}}/></span>{basicMode ? "Basics" : "Advanced"}</div>
+        <div className="nav-step" data-tut="toggle-basic-advanced" style={{marginLeft:"auto",fontSize:"11px",gap:"4px",opacity:0.85}} onClick={() => setPrefs(p => ({...p, basicMode: !p.basicMode}))} title={basicMode ? "Show all tabs (advanced features)" : "Simplify to basics only"}><span style={{display:"inline-block",width:"28px",height:"16px",borderRadius:"8px",background:basicMode?"#76B900":"#64748b",position:"relative",transition:"background .2s",verticalAlign:"middle"}}><span style={{position:"absolute",top:"2px",left:basicMode?"2px":"14px",width:"12px",height:"12px",borderRadius:"50%",background:"white",transition:"left .2s"}}/></span>{basicMode ? "Basics" : "Advanced"}</div>
       </div>
     </header>
     {/* Scenario Mode Banner */}
@@ -2897,7 +3025,7 @@ function App() {
       {/* Section Header */}
       <SectionHeader badge={meta.badge} title={meta.title} subtitle={meta.subtitle} right={
         view === "assets" ? <>
-          <button className="px-4 py-2 rounded-lg bg-[#76B900] hover:bg-[#5A9400] text-white font-semibold flex items-center gap-2" onClick={openAddAsset}><Icon name="plus" /> Add asset</button>
+          <button data-tut="btn-add-asset" className="px-4 py-2 rounded-lg bg-[#76B900] hover:bg-[#5A9400] text-white font-semibold flex items-center gap-2" onClick={openAddAsset}><Icon name="plus" /> Add asset</button>
           {sorted.length !== enriched.length && <button className="px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold flex items-center gap-2" onClick={exportFilteredExcel}><Icon name="download" size={16} /> Export filtered ({sorted.length})</button>}
           {selected.size > 0 && <><button className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold flex items-center gap-2" onClick={() => setBatchServiceOpen(true)}><Icon name="wrench" size={16} /> Log Service ({selected.size})</button><button className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-semibold flex items-center gap-2" onClick={() => setBulkEditModalOpen(true)}><Icon name="bulkEdit" /> Bulk Edit ({selected.size})</button><button className="px-4 py-2 rounded-lg bg-slate-500 hover:bg-slate-600 text-white font-semibold" onClick={() => setConfirm({ open: true, title: `Retire ${selected.size} asset${selected.size === 1 ? "" : "s"}?`, body: "This sets the status to Retired. Retired assets are excluded from forecasts, risk calculations, and maintenance tracking. This can be undone via Bulk Edit.", danger: false, confirmText: "Retire", onConfirm: () => { handleBulkEditSave({ status: "Retired" }); setConfirm({ open: false }); }, onCancel: () => setConfirm({ open: false }) })}>Retire ({selected.size})</button><button className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold" onClick={() => askDeleteAssets(Array.from(selected))}>Delete ({selected.size})</button></>}
         </> : view === "service" ? <button className="px-4 py-2 rounded-lg bg-[#76B900] hover:bg-[#5A9400] text-white font-semibold flex items-center gap-2" onClick={() => { setEditService(null); setServiceModalOpen(true); }}><Icon name="plus" /> Add service entry</button>
@@ -2905,7 +3033,7 @@ function App() {
         : view === "data" ? <button className="px-4 py-2 rounded-lg bg-[#1E3D3B] hover:bg-[#152B2A] text-white font-semibold flex items-center gap-2" onClick={() => setImportModalOpen(true)}><Icon name="database" /> Open Import / Restore / Backup tools</button> : null
       } />
       {/* Filters */}
-      {["assets","service"].includes(view) && <div className="glass-card p-4 mb-5">
+      {["assets","service"].includes(view) && !(view === "assets" && assets.length === 0) && <div className="glass-card p-4 mb-5">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
           <div className="lg:col-span-5"><label className="text-xs font-medium text-slate-600 uppercase">Search</label><div className="relative mt-1"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icon name="search" /></div><input value={view === "service" ? serviceSearch : assetSearch} onChange={(e) => (view === "service" ? setServiceSearch(e.target.value) : setAssetSearch(e.target.value))} className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-white" placeholder={view === "service" ? "Search service log…" : "Search assets…"} /></div></div>
           {view === "assets" && <><div className="lg:col-span-2"><label className="text-xs font-medium text-slate-600 uppercase">Status</label><select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="All">All</option>{STATUSES.map(s => <option key={s} value={s}>{s}</option>)}</select></div><div className="lg:col-span-2"><label className="text-xs font-medium text-slate-600 uppercase">Category</label><select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="All">All</option>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div><div className="lg:col-span-2"><label className="text-xs font-medium text-slate-600 uppercase">Priority</label><select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white"><option value="All">All</option>{PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}</select></div></>}
@@ -2919,7 +3047,7 @@ function App() {
         ))}
       </div>}
       {/* FEATURE 1: Dashboard with Charts */}
-      {view === "dashboard" && <div className="space-y-4">
+      {view === "dashboard" && <div className="space-y-4" data-tut="dashboard-body">
         <div className="print-header items-center justify-between p-4 rounded-xl" style={{background:"#1E3D3B",color:"white"}}>
           <div>
             <div className="text-xl font-bold">{settings.orgName || "Water System"}</div>
@@ -3097,7 +3225,17 @@ function App() {
         </div>
         <button className="px-3 py-1.5 rounded-lg bg-[#1E3D3B] hover:bg-[#152B2A] text-white text-xs font-bold" onClick={() => setAlertFilter(null)}>Show all assets</button>
       </div>}
-      {view === "assets" && <div className="glass-card p-4"><div className="overflow-x-auto max-h-[70vh]"><table className="w-full text-sm sticky-header"><thead className="text-left text-slate-600"><tr>
+      {view === "assets" && assets.length === 0 && <div className="glass-card p-8 text-center" style={{background:"linear-gradient(135deg, rgba(118,185,0,0.06), rgba(255,255,255,0.98))"}}>
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-[#76B900]/15 flex items-center justify-center mb-4"><Icon name="plus" size={28} /></div>
+        <div className="text-xl font-semibold text-slate-900">No equipment on file yet</div>
+        <div className="text-sm text-slate-600 mt-2 max-w-lg mx-auto leading-relaxed">Start with a single item — a well, pump, tank, meter, or generator. You only need a name to begin. You can fill in cost, condition, and maintenance details later.</div>
+        <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
+          <button className="px-5 py-2.5 rounded-xl bg-[#76B900] hover:bg-[#5A9400] text-white font-semibold flex items-center gap-2" onClick={openAddAsset}><Icon name="plus" /> Add your first asset</button>
+          <button className="px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-semibold text-slate-700 flex items-center gap-2" onClick={() => setImportModalOpen(true)}><Icon name="database" size={16} /> Import from a spreadsheet</button>
+          <button className="px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-semibold text-slate-700 flex items-center gap-2" onClick={() => startTutorial()}><Icon name="bookOpen" size={16} /> Take the tour</button>
+        </div>
+      </div>}
+      {view === "assets" && assets.length > 0 && <div className="glass-card p-4"><div className="overflow-x-auto max-h-[70vh]"><table className="w-full text-sm sticky-header"><thead className="text-left text-slate-600"><tr>
         <th className="py-2 px-2 w-10"><input type="checkbox" checked={sorted.length > 0 && selected.size === sorted.length} onChange={(e) => toggleSelectAll(e.target.checked)} /></th>
         <SortableTH label="ID" field="id" sortBy={sortBy} sortDir={sortDir} onSort={() => toggleSort("id")} />
         <SortableTH label="Asset" field="assetName" sortBy={sortBy} sortDir={sortDir} onSort={() => toggleSort("assetName")} />
@@ -3588,56 +3726,16 @@ function App() {
       const step = TUTORIAL_STEPS[tutorialStep];
       if (!step) return null;
       const total = TUTORIAL_STEPS.length;
-      const isFirst = tutorialStep === 0;
-      const isLast = tutorialStep === total - 1;
-      const pct = ((tutorialStep + 1) / total) * 100;
-      return <div className="tut-panel no-print">
-        <div className="tut-panel-inner">
-          {/* Progress bar */}
-          <div className="tut-progress-bar" style={{borderRadius:"20px 20px 0 0"}}><div className="tut-progress-fill" style={{width: pct+"%"}}></div></div>
-          <div className="p-4 sm:p-5">
-            {/* Header row */}
-            <div className="flex items-start gap-3">
-              <div className={`tut-icon-box ${step.iconBg || 'bg-[#1E3D3B]'} text-white`}><Icon name={step.icon || "bookOpen"} size={22} /></div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-slate-400">{tutorialStep + 1}/{total}</span>
-                  {step.nav && !isFirst && !isLast && <span className="text-sm font-bold text-[#1E3D3B] bg-[#1E3D3B]/10 px-2.5 py-0.5 rounded-full uppercase">{step.nav} tab</span>}
-                </div>
-                <div className="text-lg sm:text-xl font-semibold text-slate-900 mt-0.5 leading-tight">{step.title}</div>
-              </div>
-              <button onClick={endTutorial} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex-shrink-0" title="Close tutorial"><Icon name="x" size={18} /></button>
-            </div>
-            {/* Body */}
-            <div className="mt-3">
-              <div className="text-base text-slate-700 leading-relaxed">{step.body}</div>
-              {step.features && <div className="tut-feature-grid mt-3">{step.features.map((f, i) =>
-                <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                  <span className="text-lg">{f.icon}</span><span className="text-sm font-semibold text-slate-700">{f.label}</span>
-                </div>
-              )}</div>}
-              {step.bullets && <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">{step.bullets.map((b, i) =>
-                <div key={i} className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#1E3D3B]/10 flex items-center justify-center flex-shrink-0 mt-0.5"><span className="text-xs font-bold text-[#1E3D3B]">{i+1}</span></div>
-                  <div className="text-sm text-slate-700 leading-relaxed">{b}</div>
-                </div>
-              )}</div>}
-              {step.tip && <div className="tut-tip mt-3"><div className="flex-shrink-0"><Icon name="info" size={16} /></div><div>{step.tip}</div></div>}
-            </div>
-            {/* Navigation */}
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
-              <button onClick={endTutorial} className="text-sm text-slate-500 hover:text-slate-700 font-semibold">Skip tutorial</button>
-              <div className="flex items-center gap-2">
-                {!isFirst && <button onClick={prevTut} className="px-3 py-1.5 rounded-lg text-sm border border-slate-200 hover:bg-slate-50 font-semibold text-slate-700">Back</button>}
-                {isLast
-                  ? <button onClick={endTutorial} className="px-4 py-1.5 rounded-lg text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold">Get Started</button>
-                  : <button onClick={nextTut} className="px-4 py-1.5 rounded-lg text-sm bg-[#1E3D3B] hover:bg-[#152B2A] text-white font-bold flex items-center gap-1">{isFirst ? "Begin Tour" : "Next"} <Icon name="chevronRight" size={14} /></button>
-                }
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>;
+      return <TutorialSpotlight
+        step={step}
+        current={tutorialStep}
+        total={total}
+        isFirst={tutorialStep === 0}
+        isLast={tutorialStep === total - 1}
+        onPrev={prevTut}
+        onNext={nextTut}
+        onClose={endTutorial}
+      />;
     })()}
   </div>;
 }
