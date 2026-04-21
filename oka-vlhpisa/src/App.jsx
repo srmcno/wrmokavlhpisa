@@ -1341,17 +1341,13 @@ function TutorialSpotlight({ step, current, total, isFirst, isLast, onPrev, onNe
       const measure = () => {
         const r = el.getBoundingClientRect();
         if (!r.width && !r.height) return;
+        const vw = window.innerWidth, vh = window.innerHeight;
+        // Don't spotlight targets that fill the viewport — the ring becomes meaningless.
+        const targetTooBig = r.height > vh * 0.75 || r.width > vw * 0.9;
+        if (targetTooBig) { setRect(null); setCardPos(null); return; }
         const pad = 6;
         setRect({ top: r.top - pad, left: r.left - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
         const cardW = 460, cardH = 260, gap = 16;
-        const vw = window.innerWidth, vh = window.innerHeight;
-        // Target is huge (taller than viewport, or covers most of it): skip pointing and use a floating card.
-        const targetTooBig = r.height > vh * 0.8 || r.width > vw * 0.8;
-        if (targetTooBig) {
-          setCardPos({ top: Math.max(16, vh - cardH - 32), left: Math.max(16, vw - cardW - 32) });
-          setArrow("none");
-          return;
-        }
         const spaceBelow = vh - (r.bottom + gap);
         const spaceAbove = r.top - gap;
         const spaceRight = vw - (r.right + gap);
@@ -1371,7 +1367,7 @@ function TutorialSpotlight({ step, current, total, isFirst, isLast, onPrev, onNe
         else { top = clampTop(r.top + r.height / 2 - cardH / 2); left = clampLeft(r.left - cardW - gap); arr = "right"; }
         setCardPos({ top, left }); setArrow(arr);
       };
-      setTimeout(measure, 350);
+      setTimeout(measure, 300);
       measure();
       const ro = new ResizeObserver(measure);
       ro.observe(el);
@@ -1395,15 +1391,19 @@ function TutorialSpotlight({ step, current, total, isFirst, isLast, onPrev, onNe
 
   if (!step) return null;
   const pct = ((current + 1) / total) * 100;
-  const hasTarget = !!rect && !!cardPos;
-  const cardStyle = hasTarget ? { top: cardPos.top, left: cardPos.left } : {};
-  const cardCls = "tut-card" + (hasTarget ? "" : " centered");
+  const hasSpotlight = !!rect && !!cardPos;
+  const cardStyle = hasSpotlight ? { top: cardPos.top, left: cardPos.left } : {};
+  const cardCls = "tut-card" + (hasSpotlight ? "" : " centered");
 
   return <>
-    <div className="tut-backdrop no-print" onClick={onClose} />
-    {hasTarget && <div className="tut-spotlight no-print" style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }} />}
-    <div ref={cardRef} className={cardCls + " no-print"} style={cardStyle} role="dialog" aria-label={step.title}>
-      {hasTarget && arrow !== "none" && <div className={`tut-card-arrow ${arrow}`} style={
+    {/* Dim layer: use box-shadow technique when we have a target so the target
+        itself stays fully lit. Fall back to a full backdrop when there's no
+        target to highlight (welcome/summary steps). */}
+    {hasSpotlight
+      ? <div className="tut-spotlight no-print" style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }} />
+      : <div className="tut-backdrop no-print" />}
+    <div ref={cardRef} className={cardCls + " no-print"} style={cardStyle} role="dialog" aria-label={step.title} aria-modal="true">
+      {hasSpotlight && arrow !== "none" && <div className={`tut-card-arrow ${arrow}`} style={
         arrow === "top" || arrow === "bottom"
           ? { left: Math.max(18, Math.min(460 - 22, (rect.left + rect.width / 2) - cardPos.left - 7)) }
           : { top: Math.max(18, Math.min(260 - 22, (rect.top + rect.height / 2) - cardPos.top - 7)) }
@@ -2123,7 +2123,7 @@ function App() {
         "You can flip between them any time. No data is lost."
       ],
       tip: "If this is your first time using the app, leave it on Basics. Switch to Advanced when you\u2019re comfortable." },
-    { id: "dashboard", icon: "search", iconBg: "bg-emerald-600", nav: "dashboard", target: "[data-tut=\"dashboard-body\"]", title: "Overview \u2014 your daily check-in",
+    { id: "dashboard", icon: "search", iconBg: "bg-emerald-600", nav: "dashboard", target: null, title: "Overview \u2014 your daily check-in",
       body: "The Overview page summarizes your system in one screen. It\u2019s the page worth opening each morning.",
       bullets: [
         "Total equipment count and what it would cost to replace today.",
@@ -2160,7 +2160,7 @@ function App() {
         "On supported browsers, Autosave can keep a backup file on disk in sync automatically."
       ],
       tip: "Export a JSON backup at least once a month, and always before you import a big batch of new data." },
-    { id: "scenarios", icon: "flask", iconBg: "bg-amber-700", nav: "dashboard", target: "[data-tut=\"toggle-basic-advanced\"]", title: "Scenarios \u2014 a safe place to practice (Advanced)",
+    { id: "scenarios", icon: "flask", iconBg: "bg-amber-700", nav: "dashboard", target: null, title: "Scenarios \u2014 a safe place to practice (Advanced)",
       body: "Scenarios appear when Advanced mode is on. They give you a sandbox copy of your data where you can try things without changing your real records.",
       bullets: [
         "Load a sample water system to explore the app with realistic data.",
@@ -2169,7 +2169,7 @@ function App() {
         "Nothing you do in a scenario touches your saved records."
       ],
       tip: "If you\u2019re worried about breaking something, try it in Scenarios first." },
-    { id: "forecast-reports", icon: "database", iconBg: "bg-purple-600", nav: "forecast", target: "[data-tut=\"toggle-basic-advanced\"]", title: "Forecast & Reports \u2014 for planning and funders (Advanced)",
+    { id: "forecast-reports", icon: "database", iconBg: "bg-purple-600", nav: "forecast", target: null, title: "Forecast & Reports \u2014 for planning and funders (Advanced)",
       body: "In Advanced mode, two more views open up. Forecast projects future replacement and operating costs. Reports turns your records into something you can email or print.",
       bullets: [
         "Forecast combines capital replacement, labor, maintenance, and overhead over 10 to 30 years.",
