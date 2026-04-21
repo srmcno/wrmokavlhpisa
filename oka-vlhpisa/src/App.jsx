@@ -454,7 +454,19 @@ function Logo({ orgName, pwsId, sealOk = true }) {
     </div>
   );
 }
-function Toast({ toast, onClose, tutorialActive }) { if (!toast) return null; const bg = toast.type === "error" ? "bg-red-600" : toast.type === "warn" ? "bg-amber-600" : "bg-emerald-600"; return <div className={`fixed ${tutorialActive ? "bottom-[360px]" : "bottom-5"} right-5 z-50 no-print transition-all`}><div className={`${bg} text-white px-4 py-3 rounded-xl shadow-lg flex items-start gap-3 max-w-md`}><div className="mt-0.5">{toast.type === "error" ? "⚠️" : toast.type === "warn" ? "🟡" : "✅"}</div><div className="text-sm font-medium">{toast.msg}</div><button className="ml-auto opacity-80 hover:opacity-100" onClick={onClose}><Icon name="x" /></button></div></div>; }
+function Toast({ toast, onClose, tutorialActive }) {
+  if (!toast) return null;
+  const bg = toast.type === "error" ? "bg-red-600" : toast.type === "warn" ? "bg-amber-600" : toast.type === "hint" ? "bg-[#1E3D3B]" : "bg-emerald-600";
+  const icon = toast.type === "error" ? "⚠" : toast.type === "warn" ? "●" : toast.type === "hint" ? "💡" : "✓";
+  return <div className={`fixed ${tutorialActive ? "bottom-[360px]" : "bottom-5"} right-5 z-50 no-print transition-all`}>
+    <div className={`${bg} text-white px-4 py-3 rounded-xl shadow-lg flex items-start gap-3 max-w-md`}>
+      <div className="mt-0.5 text-base leading-none">{icon}</div>
+      <div className="text-sm font-medium leading-relaxed">{toast.msg}</div>
+      {toast.actionLabel && toast.onAction && <button className="ml-2 px-2.5 py-1 rounded-md bg-white/20 hover:bg-white/30 text-xs font-semibold" onClick={() => { try { toast.onAction(); } catch {} onClose(); }}>{toast.actionLabel}</button>}
+      <button className="ml-auto opacity-80 hover:opacity-100" onClick={onClose}><Icon name="x" /></button>
+    </div>
+  </div>;
+}
 function Modal({ title, subtitle, isOpen, onClose, children, footer, size = "lg" }) { const maxW = size === "sm" ? "max-w-md" : size === "md" ? "max-w-2xl" : "max-w-4xl"; useEffect(() => { if (!isOpen) return; function onKey(e) { if (e.key === "Escape") onClose(); } window.addEventListener("keydown", onKey); return () => window.removeEventListener("keydown", onKey); }, [isOpen, onClose]); if (!isOpen) return null; return <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay no-print" role="dialog"><div className="absolute inset-0 bg-black/40" onClick={onClose}></div><div className={`relative w-full ${maxW} glass-card p-5 sm:p-6 animate-in max-h-[90vh] overflow-y-auto`}><div className="flex items-start gap-3"><div className="min-w-0"><div className="text-lg font-bold text-slate-900">{title}</div>{subtitle ? <div className="text-sm text-slate-500 mt-1">{subtitle}</div> : null}<div style={{width:40,height:3,background:"linear-gradient(90deg, #1E3D3B, #76B900)",borderRadius:2,marginTop:8}}></div></div><button className="ml-auto p-2 rounded-lg hover:bg-slate-100" onClick={onClose}><Icon name="x" /></button></div><div className="mt-4">{children}</div>{footer ? <div className="mt-5 pt-4 border-t border-slate-200">{footer}</div> : null}</div></div>; }
 function ConfirmDialog({ isOpen, title, body, confirmText="Confirm", cancelText="Cancel", danger=false, onConfirm, onCancel }) { return <Modal title={title} subtitle={body} isOpen={isOpen} onClose={onCancel} size="sm" footer={<div className="flex items-center justify-end gap-2"><button className="px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold" onClick={onCancel}>{cancelText}</button><button className={`px-4 py-2 rounded-lg font-semibold text-white ${danger ? "bg-red-600 hover:bg-red-700" : "bg-[#76B900] hover:bg-[#5A9400]"}`} onClick={onConfirm}>{confirmText}</button></div>}><div /></Modal>; }
 function Chip({ label, cls }) { if (!label) return null; return <span className={`chip ${cls}`}>{label}</span>; }
@@ -497,6 +509,77 @@ function FormattedDollarInput({ label, value, onChange }) {
 // Global HelpLink component - uses CustomEvent so it works from any component
 function HelpLink({ tab, scrollTo }) {
   return <button type="button" onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("ov-open-help", { detail: { tab: tab || "definitions", scrollTo } })); }} className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 hover:bg-[#76B900] hover:text-white text-slate-500 text-[9px] font-semibold leading-none cursor-pointer align-middle ml-1 transition" title="Learn more">?</button>;
+}
+
+/** Inline popover-style explainer. Shows a small ? icon; click opens a short
+ *  tooltip near the icon. Closes on outside click or Esc. Better for a quick
+ *  definition than jumping to the full Help panel. */
+function InfoTip({ title, children, width = 280 }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, side: "bottom" });
+  const btnRef = useRef(null);
+  const popRef = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    function place() {
+      const b = btnRef.current; if (!b) return;
+      const r = b.getBoundingClientRect();
+      const vh = window.innerHeight, vw = window.innerWidth;
+      const side = vh - r.bottom > 180 ? "bottom" : "top";
+      const top = side === "bottom" ? r.bottom + 8 : r.top - 8;
+      const rawLeft = r.left + r.width / 2 - width / 2;
+      const left = Math.max(10, Math.min(vw - width - 10, rawLeft));
+      setPos({ top, left, side });
+    }
+    place();
+    function onDown(e) { if (popRef.current && !popRef.current.contains(e.target) && btnRef.current && !btnRef.current.contains(e.target)) setOpen(false); }
+    function onKey(e) { if (e.key === "Escape") setOpen(false); }
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => { window.removeEventListener("mousedown", onDown); window.removeEventListener("keydown", onKey); window.removeEventListener("scroll", place, true); window.removeEventListener("resize", place); };
+  }, [open]);
+  return <>
+    <button
+      ref={btnRef}
+      type="button"
+      aria-label={title || "More info"}
+      onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen((o) => !o); }}
+      className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 hover:bg-[#76B900] hover:text-white text-slate-500 text-[10px] font-semibold leading-none cursor-pointer align-middle ml-1 transition"
+      title={title || "More info"}
+    >?</button>
+    {open && <div
+      ref={popRef}
+      role="tooltip"
+      className="tut-tooltip"
+      style={{ top: pos.top, left: pos.left, width, transform: pos.side === "top" ? "translateY(-100%)" : "none" }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {title && <div className="text-xs font-semibold text-slate-900 mb-1">{title}</div>}
+      <div className="text-xs text-slate-700 leading-relaxed">{children}</div>
+    </div>}
+  </>;
+}
+
+/** Show a one-time hint using localStorage. Call the returned `fire` function
+ *  when the hint's moment happens; it shows a toast only the first time. */
+function useFirstTimeHints(showToast) {
+  const [seen, setSeen] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("ov-first-hints") || "{}"); } catch { return {}; }
+  });
+  const fire = useCallback((key, message, actionLabel, onAction) => {
+    if (seen[key]) return;
+    const next = { ...seen, [key]: Date.now() };
+    setSeen(next);
+    try { localStorage.setItem("ov-first-hints", JSON.stringify(next)); } catch {}
+    if (typeof showToast === "function") showToast(message, "hint", actionLabel, onAction);
+  }, [seen, showToast]);
+  const reset = useCallback(() => {
+    setSeen({});
+    try { localStorage.removeItem("ov-first-hints"); } catch {}
+  }, []);
+  return { fire, reset };
 }
 // FEATURE 2: AssetForm includes imageUrl and docUrl fields
 function AssetForm({ initial, catalog, maintenanceProfiles = [], onSubmit, onCancel, onSavePhoto, onSaveDocument, onSaveInspection, onDeleteFile, assetFiles }) {
@@ -543,7 +626,7 @@ function AssetForm({ initial, catalog, maintenanceProfiles = [], onSubmit, onCan
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div><label className="text-xs font-medium text-slate-600 uppercase">Quantity</label><input type="number" value={data.quantity ?? 1} onChange={(e) => update("quantity", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white" min="0"/></div>
-          <div><label className="text-xs font-medium text-slate-600 uppercase">Condition</label><select value={data.condition ?? 3} onChange={(e) => update("condition", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white">{CONDITIONS.map(c => <option key={c.value} value={c.value}>{c.value} - {c.label}</option>)}</select></div>
+          <div><label className="text-xs font-medium text-slate-600 uppercase">Condition<InfoTip title="Condition rating"><strong>5 = Excellent</strong> (like new). <strong>4 = Good</strong> (minor wear). <strong>3 = Fair</strong> (showing age, still works). <strong>2 = Poor</strong> (may fail). <strong>1 = Critical</strong> (barely functional). Rate by last inspection or best judgment.</InfoTip></label><select value={data.condition ?? 3} onChange={(e) => update("condition", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white">{CONDITIONS.map(c => <option key={c.value} value={c.value}>{c.value} - {c.label}</option>)}</select></div>
         </div>
         <div><label className="text-xs font-medium text-slate-600 uppercase">Location</label><input value={data.location || ""} onChange={(e) => update("location", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white" placeholder="Treatment Plant / Well Site"/></div>
         <div className="grid grid-cols-2 gap-3">
@@ -564,12 +647,12 @@ function AssetForm({ initial, catalog, maintenanceProfiles = [], onSubmit, onCan
             {(data._dateMode)==="month" && <input type="month" value={data.installDate && /^\d{4}-\d{2}/.test(data.installDate)?data.installDate.substring(0,7):""} onChange={e => { update("installDate",e.target.value); update("installYear",null); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white"/>}
             {(data._dateMode)==="full" && <input type="date" value={data.installDate && /^\d{4}-\d{2}-\d{2}/.test(data.installDate)?data.installDate:""} onChange={e => { update("installDate",e.target.value); update("installYear",null); }} className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white"/>}
           </div>
-          <div><label className="text-xs font-medium text-slate-600 uppercase">Useful life (yrs)</label><input type="number" value={data.usefulLife ?? ""} onChange={(e) => update("usefulLife", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white" min="1" max="200"/></div>
+          <div><label className="text-xs font-medium text-slate-600 uppercase">Useful life (yrs)<InfoTip title="Useful life">The expected years this item will function before needing full replacement. Example: a well pump might have a useful life of 15 years. Used to estimate a replacement year for the forecast.</InfoTip></label><input type="number" value={data.usefulLife ?? ""} onChange={(e) => update("usefulLife", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white" min="1" max="200"/></div>
         </div>
-        <div><label className="text-xs font-medium text-slate-600 uppercase">Replacement cost (unit)</label><input value={data.replacementCost ?? ""} onChange={(e) => update("replacementCost", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white" placeholder="45000"/></div>
+        <div><label className="text-xs font-medium text-slate-600 uppercase">Replacement cost (unit)<InfoTip title="Replacement cost">What it would cost <strong>today</strong> to buy and install a new version of this item. Enter the per-unit price. If you have 50 identical meters at $300 each, enter 300 here and set Quantity to 50.</InfoTip></label><input value={data.replacementCost ?? ""} onChange={(e) => update("replacementCost", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white" placeholder="45000"/></div>
         <div className="grid grid-cols-2 gap-3">
-          <div><label className="text-xs font-medium text-slate-600 uppercase">Last maintenance</label><input type="date" value={data.lastMaint || ""} onChange={(e) => update("lastMaint", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white"/></div>
-          <div><label className="text-xs font-medium text-slate-600 uppercase">Maint interval</label><div className="flex gap-1 mt-1"><input type="number" value={data._maintIntDisplay ?? data.maintInt ?? ""} onChange={(e) => { const val = toFloat(e.target.value); const unit = data._maintIntUnit || "months"; update("_maintIntDisplay", e.target.value); if (val != null) { if (unit === "years") update("maintInt", Math.round(val * 12)); else if (unit === "weeks") update("maintInt", Math.max(1, Math.round(val / 4.33))); else if (unit === "days") update("maintInt", Math.max(1, Math.round(val / 30.44))); else update("maintInt", val); } else { update("maintInt", null); } }} className="w-full px-3 py-3 text-lg border border-slate-200 rounded-lg bg-white font-semibold" min="0" placeholder="12"/><select value={data._maintIntUnit || "months"} onChange={(e) => { const unit = e.target.value; const raw = toFloat(data.maintInt); update("_maintIntUnit", unit); if (raw != null) { if (unit === "years") update("_maintIntDisplay", Math.round(raw / 12 * 10) / 10); else if (unit === "weeks") update("_maintIntDisplay", Math.round(raw * 4.33)); else if (unit === "days") update("_maintIntDisplay", Math.round(raw * 30.44)); else update("_maintIntDisplay", raw); } }} className="w-28 px-2 py-2 border border-slate-200 rounded-lg bg-white text-sm"><option value="months">Months</option><option value="weeks">Weeks</option><option value="days">Days</option><option value="years">Years</option></select></div></div>
+          <div><label className="text-xs font-medium text-slate-600 uppercase">Last maintenance<InfoTip title="Last maintenance">The date this item was last serviced. Combined with the Maintenance Interval below, it tells the Calendar when the next service is due.</InfoTip></label><input type="date" value={data.lastMaint || ""} onChange={(e) => update("lastMaint", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white"/></div>
+          <div><label className="text-xs font-medium text-slate-600 uppercase">Maint interval<InfoTip title="Maintenance interval">How often this item should be serviced. Example: 12 months for a yearly inspection, 6 months for a generator, 3 months for chemical feed systems. The Calendar fills in due dates automatically from this.</InfoTip></label><div className="flex gap-1 mt-1"><input type="number" value={data._maintIntDisplay ?? data.maintInt ?? ""} onChange={(e) => { const val = toFloat(e.target.value); const unit = data._maintIntUnit || "months"; update("_maintIntDisplay", e.target.value); if (val != null) { if (unit === "years") update("maintInt", Math.round(val * 12)); else if (unit === "weeks") update("maintInt", Math.max(1, Math.round(val / 4.33))); else if (unit === "days") update("maintInt", Math.max(1, Math.round(val / 30.44))); else update("maintInt", val); } else { update("maintInt", null); } }} className="w-full px-3 py-3 text-lg border border-slate-200 rounded-lg bg-white font-semibold" min="0" placeholder="12"/><select value={data._maintIntUnit || "months"} onChange={(e) => { const unit = e.target.value; const raw = toFloat(data.maintInt); update("_maintIntUnit", unit); if (raw != null) { if (unit === "years") update("_maintIntDisplay", Math.round(raw / 12 * 10) / 10); else if (unit === "weeks") update("_maintIntDisplay", Math.round(raw * 4.33)); else if (unit === "days") update("_maintIntDisplay", Math.round(raw * 30.44)); else update("_maintIntDisplay", raw); } }} className="w-28 px-2 py-2 border border-slate-200 rounded-lg bg-white text-sm"><option value="months">Months</option><option value="weeks">Weeks</option><option value="days">Days</option><option value="years">Years</option></select></div></div>
         </div>
         <div className="sm:col-span-2 mt-2 pt-4 border-t border-slate-200"><div className="text-sm font-semibold text-slate-900">Add later</div><div className="text-sm text-slate-600 mt-1">These details improve record quality, service history, and file tracking, but they can wait until you have time.</div></div><div><label className="text-xs font-medium text-slate-600 uppercase">Warranty expiration</label><input type="date" value={data.warrantyExp || ""} onChange={(e) => update("warrantyExp", e.target.value)} className="mt-1 w-full px-3 py-2 border border-slate-200 rounded-lg bg-white"/></div>
         <div><label className="text-xs font-medium text-slate-600 uppercase">Manufacturer / Model / Serial</label><div className="grid grid-cols-3 gap-2 mt-1"><input value={data.manufacturer || ""} onChange={(e) => update("manufacturer", e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg bg-white" placeholder="Mfg"/><input value={data.model || ""} onChange={(e) => update("model", e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg bg-white" placeholder="Model"/><input value={data.serialNum || ""} onChange={(e) => update("serialNum", e.target.value)} className="px-3 py-2 border border-slate-200 rounded-lg bg-white" placeholder="Serial"/></div></div>
@@ -1337,17 +1420,24 @@ function TutorialSpotlight({ step, current, total, isFirst, isLast, onPrev, onNe
         if (tries++ < 30) { setTimeout(poll, 90); return; }
         setRect(null); setCardPos(null); return;
       }
-      try { el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" }); } catch (e) {}
+      // Only scroll if the target isn't already mostly visible — avoids the "jump" when the target is already on screen.
+      const inView = () => {
+        const r = el.getBoundingClientRect();
+        return r.top >= 0 && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth;
+      };
+      if (!inView()) {
+        try { el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" }); } catch (e) {}
+      }
       const measure = () => {
         const r = el.getBoundingClientRect();
         if (!r.width && !r.height) return;
         const vw = window.innerWidth, vh = window.innerHeight;
-        // Don't spotlight targets that fill the viewport — the ring becomes meaningless.
+        // Skip spotlight if target fills the viewport — use floating card instead.
         const targetTooBig = r.height > vh * 0.75 || r.width > vw * 0.9;
         if (targetTooBig) { setRect(null); setCardPos(null); return; }
         const pad = 6;
         setRect({ top: r.top - pad, left: r.left - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
-        const cardW = 460, cardH = 260, gap = 16;
+        const cardW = 420, cardH = 280, gap = 18;
         const spaceBelow = vh - (r.bottom + gap);
         const spaceAbove = r.top - gap;
         const spaceRight = vw - (r.right + gap);
@@ -1367,7 +1457,7 @@ function TutorialSpotlight({ step, current, total, isFirst, isLast, onPrev, onNe
         else { top = clampTop(r.top + r.height / 2 - cardH / 2); left = clampLeft(r.left - cardW - gap); arr = "right"; }
         setCardPos({ top, left }); setArrow(arr);
       };
-      setTimeout(measure, 300);
+      setTimeout(measure, 260);
       measure();
       const ro = new ResizeObserver(measure);
       ro.observe(el);
@@ -1392,21 +1482,23 @@ function TutorialSpotlight({ step, current, total, isFirst, isLast, onPrev, onNe
   if (!step) return null;
   const pct = ((current + 1) / total) * 100;
   const hasSpotlight = !!rect && !!cardPos;
+  // Layout for steps without a target. "welcome" = big centered modal (step 1 & last step).
+  // Everything else is "floating" = small side panel that doesn't cover the page content.
+  const layout = step.layout || (hasSpotlight ? "spotlight" : (isFirst || isLast ? "welcome" : "floating"));
   const cardStyle = hasSpotlight ? { top: cardPos.top, left: cardPos.left } : {};
-  const cardCls = "tut-card" + (hasSpotlight ? "" : " centered");
+  const cardCls = "tut-card" + (hasSpotlight ? "" : " " + layout);
 
   return <>
-    {/* Dim layer: use box-shadow technique when we have a target so the target
-        itself stays fully lit. Fall back to a full backdrop when there's no
-        target to highlight (welcome/summary steps). */}
+    {/* Dim layer choice: spotlight uses its own box-shadow (target stays lit).
+        "welcome" uses a full dim backdrop. "floating" uses no backdrop at all — the card sits in the corner and the page stays usable. */}
     {hasSpotlight
       ? <div className="tut-spotlight no-print" style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }} />
-      : <div className="tut-backdrop no-print" />}
-    <div ref={cardRef} className={cardCls + " no-print"} style={cardStyle} role="dialog" aria-label={step.title} aria-modal="true">
+      : layout === "welcome" ? <div className="tut-backdrop no-print" /> : null}
+    <div ref={cardRef} key={step.id} className={cardCls + " no-print"} style={cardStyle} role="dialog" aria-label={step.title} aria-modal={layout !== "floating" ? "true" : "false"}>
       {hasSpotlight && arrow !== "none" && <div className={`tut-card-arrow ${arrow}`} style={
         arrow === "top" || arrow === "bottom"
-          ? { left: Math.max(18, Math.min(460 - 22, (rect.left + rect.width / 2) - cardPos.left - 7)) }
-          : { top: Math.max(18, Math.min(260 - 22, (rect.top + rect.height / 2) - cardPos.top - 7)) }
+          ? { left: Math.max(18, Math.min(420 - 22, (rect.left + rect.width / 2) - cardPos.left - 7)) }
+          : { top: Math.max(18, Math.min(280 - 22, (rect.top + rect.height / 2) - cardPos.top - 7)) }
       } />}
       <div className="tut-progress-bar" style={{ borderRadius: "16px 16px 0 0" }}>
         <div className="tut-progress-fill" style={{ width: pct + "%" }} />
@@ -1525,6 +1617,12 @@ function App() {
   }, [view]);
   const showStartHere = prefs.showStartHere !== false;
   const [toast, setToast] = useState(null);
+  const hints = useFirstTimeHints((msg, type, actionLabel, onAction) => showToast(msg, type, actionLabel, onAction));
+  useEffect(() => {
+    if (view === "service") hints.fire("first-service-view", "This page has two views. Service log records what was done; Calendar shows what's coming up next. Fill in Last Maintenance + Interval on an asset to populate the calendar.");
+    if (view === "settings") hints.fire("first-settings-view", "You only need your organization name and PWS ID to get started. Everything else is optional.");
+    if (view === "data") hints.fire("first-data-view", "Export a JSON backup here after any big change. That single file contains everything.");
+  }, [view]);
   const [assetSearch, setAssetSearch] = useState("");
   const [serviceSearch, setServiceSearch] = useState("");
   const [filterCat, setFilterCat] = useState("All");
@@ -2303,7 +2401,7 @@ function App() {
     { item: "Elevated Storage Tank", category: "Storage", expectedLife: 50, estimatedPrice: 250000, type: "Tank", maintInt: 12 }
   ]), []);
   const currentYear = new Date().getFullYear();
-  function showToast(msg, type="success") { setToast({ msg, type }); setTimeout(() => setToast(null), 3500); }
+  function showToast(msg, type="success", actionLabel, onAction) { setToast({ msg, type, actionLabel, onAction }); setTimeout(() => setToast(null), type === "hint" ? 7000 : 3500); }
   useEffect(() => { idCounterRef.current = toInt(idCounter) ?? 1; }, [idCounter]);
   // Clear asset selection when view or filters change; show toast if user had items selected
   const prevSelectedSizeRef = useRef(0);
@@ -2382,7 +2480,7 @@ function App() {
   }
   function openDetailAsset(asset) { const found = enriched.find(a => a.id === asset.id); setDetailAsset(found || asset); }
   function stripInternalFields(obj) { const clean = {}; Object.keys(obj).forEach(k => { if (!k.startsWith("_")) clean[k] = obj[k]; }); return clean; }
-  function saveAsset(assetData) { const cleaned = stripInternalFields(assetData); if (cleaned.id) { const prev = assets.find(a => a.id === cleaned.id); setAssets(prevArr => prevArr.map(a => a.id === cleaned.id ? { ...a, ...cleaned, updatedAt: new Date().toISOString() } : a)); addHistoryEntry(cleaned.id, cleaned.assetName, "updated", getChanges(prev, cleaned), { before: prev, after: cleaned }); showToast("Asset updated"); triggerBackupReminder("asset edits"); } else { const newAsset = { ...cleaned, id: genId(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }; setAssets(prevArr => [...prevArr, newAsset]); addHistoryEntry(newAsset.id, newAsset.assetName, "created", null, { after: newAsset }); showToast("Asset added"); triggerBackupReminder("asset changes"); } setAssetModalOpen(false); setEditAsset(null); }
+  function saveAsset(assetData) { const cleaned = stripInternalFields(assetData); if (cleaned.id) { const prev = assets.find(a => a.id === cleaned.id); setAssets(prevArr => prevArr.map(a => a.id === cleaned.id ? { ...a, ...cleaned, updatedAt: new Date().toISOString() } : a)); addHistoryEntry(cleaned.id, cleaned.assetName, "updated", getChanges(prev, cleaned), { before: prev, after: cleaned }); showToast("Asset updated"); triggerBackupReminder("asset edits"); } else { const newAsset = { ...cleaned, id: genId(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }; const wasFirst = assets.length === 0; setAssets(prevArr => [...prevArr, newAsset]); addHistoryEntry(newAsset.id, newAsset.assetName, "created", null, { after: newAsset }); showToast("Asset added"); triggerBackupReminder("asset changes"); if (wasFirst) { setTimeout(() => { hints.fire("first-asset-saved", "First asset saved. Add a Maintenance Interval on it so it shows up on your Calendar.", "Open Calendar", () => setView("calendar")); }, 600); } } setAssetModalOpen(false); setEditAsset(null); }
   function duplicateAsset(asset) {
     const countStr = prompt("How many copies?", "1");
     if (countStr === null) return;
