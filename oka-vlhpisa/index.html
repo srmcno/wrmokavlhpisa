@@ -15,6 +15,29 @@
         font: 500 18px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
       }
     </style>
+    <script>
+      /* Diagnostic probe: runs before the bundle. If the main bundle is
+         blocked (CSP, extension, policy, truncated download), the page
+         will say "JavaScript is running — loading the app bundle..."
+         instead of the loading placeholder. */
+      (function () {
+        try {
+          window.__ov_probe__ = true;
+          var set = function () {
+            var r = document.getElementById("root");
+            if (r && !r.children.length && !r.dataset.ovMounted) {
+              r.innerHTML =
+                '<div style="max-width:640px;margin:18vh auto;padding:18px 22px;border:1px solid #cbd5e1;background:#f8fafc;border-radius:10px;font:14px/1.5 -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;color:#475569;text-align:center">' +
+                '<div style="font-weight:600;color:#1e293b;margin-bottom:6px">JavaScript is running</div>' +
+                '<div>Loading the app bundle… if this message stays longer than a few seconds, the main script was blocked by the browser. Press F12 → Console to see why.</div>' +
+                "</div>";
+            }
+          };
+          if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", set);
+          else set();
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

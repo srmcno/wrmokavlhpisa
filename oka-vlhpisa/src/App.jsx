@@ -1980,52 +1980,95 @@ function App() {
   }
   const TUTORIAL_STEPS = useMemo(() => [
     { id: "welcome", icon: "award", iconBg: "bg-[#1E3D3B]", nav: "dashboard", title: "Welcome to Oka Vlhpisa",
-      body: "Oka Vlhpisa (Choctaw: \u201cWater Measured\u201d) helps Public Water Systems track infrastructure assets, plan maintenance, and forecast capital improvement needs. Let\u2019s walk through each section.",
-      features: [
-        { icon: "\u{1F4CA}", label: "Dashboard overview" },
-        { icon: "\u{1F527}", label: "Maintenance tracking" },
-        { icon: "\u{1F4C5}", label: "Calendar scheduling" },
-        { icon: "\u{1F4C8}", label: "Capital + operating forecast" },
-        { icon: "\u{1F9EA}", label: "Safe sample scenarios" },
-        { icon: "\u{1F4E5}", label: "Excel import/export" },
+      body: "This is a simple record-keeping app for public water systems. You can list the equipment you own, track when each piece was serviced, and see at a glance what needs attention. The name is Choctaw for \u201cwater measured.\u201d",
+      bullets: [
+        "Your data stays on this computer. Nothing is sent online.",
+        "Start small. A name and a rough year is enough to get going.",
+        "A short tour of each tab follows. It takes about two minutes."
       ],
-      tip: "Each step will take you to that section of the app so you can see it. Takes about 2 minutes." },
-    { id: "dashboard", icon: "search", iconBg: "bg-emerald-600", nav: "dashboard", title: "Dashboard \u2014 System Health at a Glance",
-      body: "This is your Dashboard. It shows the overall health of your water system behind this tutorial card.",
-      bullets: ["Total asset count and replacement value", "Average condition score across all active equipment", "Risk heatmap showing which assets need attention first", "Alerts for overdue maintenance and expiring warranties"],
-      tip: "Check this page regularly \u2014 it surfaces the items most likely to fail." },
-    { id: "scenarios", icon: "flask", iconBg: "bg-amber-700", nav: "dashboard", title: "Scenarios \u2014 Practice Safely with Sample Systems",
-      body: "Use the Scenarios button in the top bar to open a safe practice copy of your data. The picker opens automatically so you can choose a sample water system right away.",
-      bullets: ["Scenario Mode does not overwrite your real saved records", "Sample systems are preloaded with assets, service history, labor, overhead, and forecast assumptions", "Use Start Over to return to your own baseline copy", "Leave Scenario when you are finished practicing or comparing options"],
-      tip: "This is the safest place to explore the app for the first time or test a what-if change before making a real decision." },
-    { id: "assets", icon: "plus", iconBg: "bg-blue-600", nav: "assets", title: "Asset Register \u2014 Add & Manage Equipment",
-      body: "This is the Asset Register. Add every piece of equipment in your water system here.",
-      bullets: ["Click \u201cAdd asset\u201d to create a new entry with name, category, condition, cost, and more", "Use the Catalog Quick-Fill for common PWS equipment (pumps, valves, meters)", "Don\u2019t know the exact install date? Choose Year Only or Month/Year mode", "Filter and sort to find assets quickly \u2014 search by name, location, or ID"],
-      tip: "You can also bulk-import from Excel using the Import / Backup tab." },
-    { id: "service", icon: "wrench", iconBg: "bg-amber-600", nav: "service", title: "Service Log \u2014 Track Every Repair",
-      body: "This is the Service Log. Record every maintenance action, repair, inspection, and calibration here.",
-      bullets: ["Click \u201cAdd service entry\u201d to log work on any asset", "Each entry links to an asset for a complete maintenance history", "Search the log by asset name, vendor, or notes", "Use this alongside the Calendar to stay on schedule"],
-      tip: "Set a maintenance interval (in months) on each asset so the Calendar can automatically flag when service is due." },
-    { id: "calendar", icon: "calendar", iconBg: "bg-indigo-600", nav: "calendar", title: "Maintenance Calendar \u2014 Never Miss a Due Date",
-      body: "This is your Maintenance Calendar. It shows upcoming, due, and overdue maintenance on a monthly view.",
-      bullets: ["Green markers = OK, upcoming maintenance", "Yellow markers = due soon (within this month)", "Red markers = overdue \u2014 take action immediately", "Click any marker to jump to that asset"],
-      tip: "The calendar auto-populates from each asset\u2019s last maintenance date and interval. No extra setup needed." },
-    { id: "forecast", icon: "database", iconBg: "bg-purple-600", nav: "forecast", title: "Forecast \u2014 Plan Replacements and Operating Costs",
-      body: "This is your Forecast. It projects both replacement need and operating need over 3 to 30 years.",
-      bullets: ["Costs are adjusted for inflation and other assumptions from Settings", "Funding gap analysis compares projected needs vs. reserves, contributions, budgets, and grants", "Labor, maintenance, and overhead can be included alongside capital replacement need", "Print or export the forecast for board presentations or grant applications"],
-      tip: "Use Settings to fine-tune inflation, reserve balance, labor roles, overhead, and maintenance profiles for a more realistic forecast." },
-    { id: "data", icon: "database", iconBg: "bg-cyan-600", nav: "data", title: "Data Tools \u2014 Import, Export & Back Up",
-      body: "Move data in and out, restore backups, and protect your work with exports.",
-      bullets: ["Import from Excel with merge, append, or replace modes", "Export to Excel for formatted spreadsheets with all data", "JSON backup preserves everything: settings, history, and service records", "Download a blank template for field staff data collection"],
-      tip: "Your data is automatically backed up to IndexedDB, but always keep a JSON backup too. Connect an autosave file for the best protection." },
-    { id: "settings", icon: "gear", iconBg: "bg-slate-700", nav: "settings", title: "Settings \u2014 Configure Your System",
-      body: "This is your Settings page. Configure your organization, forecast assumptions, labor roles, overhead, and maintenance profiles here.",
-      bullets: ["Set your organization name and PWS ID for reports and exports", "Adjust inflation rate, reserve balance, annual contribution, annual budget, and grants", "Define labor roles and overhead so operating costs show up in the forecast", "Restart this tutorial anytime from here"],
-      tip: "Getting your assumptions right makes the Forecast and Reports much more useful." },
-    { id: "done", icon: "check", iconBg: "bg-emerald-600", nav: null, title: "You\u2019re Ready to Go!",
-      body: "You\u2019ve seen every section. Here\u2019s your quick-start checklist:",
-      bullets: ["Add your first asset (or import from Excel)", "Use Scenarios to practice with a sample system safely", "Set your organization name and financial assumptions in Settings", "Export a JSON backup after entering your initial data"],
-      tip: "Restart this tutorial anytime from Settings or the book icon in the header." }
+      tip: "You can close this tour any time with the X in the corner, and come back later from the Tour button in the header." },
+    { id: "basic-advanced", icon: "gear", iconBg: "bg-[#76B900]", nav: "settings", title: "Basics or Advanced \u2014 your choice",
+      body: "In the top navigation you\u2019ll see a Basics / Advanced switch. Basics shows only the tabs most people need day to day. Advanced turns on forecasting, reports, and financial planning features.",
+      bullets: [
+        "Basics shows: Overview, Assets, Service & Calendar, Import / Backup, Settings.",
+        "Advanced also adds: long-range Forecast, Reports, History log, and Scenarios.",
+        "You can flip between them any time. No data is lost."
+      ],
+      tip: "If this is your first time using the app, leave it on Basics. Switch to Advanced when you\u2019re comfortable." },
+    { id: "dashboard", icon: "search", iconBg: "bg-emerald-600", nav: "dashboard", title: "Overview \u2014 your daily check-in",
+      body: "The Overview page summarizes your system in one screen. It\u2019s the page worth opening each morning.",
+      bullets: [
+        "Total equipment count and what it would cost to replace today.",
+        "Average condition across everything that\u2019s still active.",
+        "Alerts for anything overdue for service or near end of useful life.",
+        "Tap any alert to jump straight to those items in your Assets list."
+      ],
+      tip: "The more complete your asset information, the more useful this page becomes." },
+    { id: "assets", icon: "plus", iconBg: "bg-blue-600", nav: "assets", title: "Assets \u2014 your equipment list",
+      body: "The Assets tab is your master list of pumps, tanks, meters, wells, and so on. Add things as you find them. It does not have to be perfect the first time.",
+      bullets: [
+        "Use Add asset to enter one item. You only need a name to start.",
+        "Catalog Quick-Fill on the form suggests common water-system equipment with useful life and typical costs.",
+        "Don\u2019t know the install date? Pick Year Only or Month/Year instead of a full date.",
+        "Attach photos and PDF manuals to any asset for quick reference later.",
+        "Search, filter by category, or sort by risk to find things fast."
+      ],
+      tip: "Have a spreadsheet already? The Import / Backup tab can bring it in. We\u2019ll cover that in a moment." },
+    { id: "service-calendar", icon: "calendar", iconBg: "bg-indigo-600", nav: "service", title: "Service & Calendar \u2014 keep maintenance on track",
+      body: "This tab has two views. The Service log records what was done. The Calendar shows what\u2019s coming up. Both update automatically from your assets.",
+      bullets: [
+        "On each asset, set Last Maintenance (date last serviced) and Maintenance Interval (how often, in months).",
+        "The Calendar fills in automatically from those two fields. No separate scheduling needed.",
+        "Green means on schedule, yellow means due this month, red means overdue.",
+        "Every service entry links back to its asset, so you build up a full history over time."
+      ],
+      tip: "If the Calendar looks empty, it\u2019s usually because Last Maintenance and Interval have not been filled in yet." },
+    { id: "data", icon: "database", iconBg: "bg-cyan-600", nav: "data", title: "Import / Backup \u2014 protect your work",
+      body: "All of your data lives in this browser. If you clear browser data or switch computers, it\u2019s gone unless you have a backup. This tab is how you make one.",
+      bullets: [
+        "Export JSON backup writes every record to a single file. Save it on a USB drive or email it to yourself.",
+        "The import wizard accepts .xlsx, .csv, and .json files. Smart Merge avoids duplicates when re-importing.",
+        "Download the blank template if you want field staff to fill in a spreadsheet.",
+        "On supported browsers, Autosave can keep a backup file on disk in sync automatically."
+      ],
+      tip: "Export a JSON backup at least once a month, and always before you import a big batch of new data." },
+    { id: "scenarios", icon: "flask", iconBg: "bg-amber-700", nav: "dashboard", title: "Scenarios \u2014 a safe place to practice (Advanced)",
+      body: "Scenarios appear when Advanced mode is on. They give you a sandbox copy of your data where you can try things without changing your real records.",
+      bullets: [
+        "Load a sample water system to explore the app with realistic data.",
+        "Test what-if changes \u2014 early replacements, rate increases, labor shifts \u2014 and see the effect.",
+        "Use Start Over to reset the sandbox, or Leave Scenario to return to your real data.",
+        "Nothing you do in a scenario touches your saved records."
+      ],
+      tip: "If you\u2019re worried about breaking something, try it in Scenarios first." },
+    { id: "forecast-reports", icon: "database", iconBg: "bg-purple-600", nav: "forecast", title: "Forecast & Reports \u2014 for planning and funders (Advanced)",
+      body: "In Advanced mode, two more views open up. Forecast projects future replacement and operating costs. Reports turns your records into something you can email or print.",
+      bullets: [
+        "Forecast combines capital replacement, labor, maintenance, and overhead over 10 to 30 years.",
+        "It pulls inflation, reserve balance, grants, and budget assumptions from Settings.",
+        "Reports produce branded PDFs for board meetings, grant applications, or state submittals.",
+        "A Data Completeness score tells you how trustworthy each year\u2019s number is."
+      ],
+      tip: "The forecast is only as accurate as your asset data. Filling in install year, useful life, and replacement cost makes a big difference." },
+    { id: "settings", icon: "gear", iconBg: "bg-slate-700", nav: "settings", title: "Settings \u2014 the basics are enough",
+      body: "You only need a few fields in Settings to get started. Everything else is optional and mostly for Advanced users.",
+      bullets: [
+        "Organization name and PWS ID appear on every export and report.",
+        "In Advanced: inflation rate, reserve balance, annual contribution, budget, and grant funding.",
+        "Workers, overhead, and maintenance templates live at the bottom of the Assets tab.",
+        "You can restart this tour any time from the Settings page."
+      ],
+      tip: "A Health Check panel on this page tells you if browser storage, photo folders, and autosave are ready to go." },
+    { id: "done", icon: "check", iconBg: "bg-emerald-600", nav: null, title: "A simple first-week plan",
+      body: "You\u2019ve seen everything. Here\u2019s what to actually do next, in order:",
+      bullets: [
+        "Enter your organization name and PWS ID in Settings.",
+        "Add five to ten assets. Start with whatever is easiest to find first.",
+        "For each one, set the install year, condition, and a rough maintenance interval.",
+        "Glance at the Overview and Calendar to make sure nothing looks off.",
+        "Export a JSON backup from Import / Backup before you close the app."
+      ],
+      tip: "The Help button in the top bar has definitions, FAQs, and detailed how-tos whenever you need them." }
   ], []);
   useEffect(() => { if (!tutorialDone && assets.length === 0) { const t = setTimeout(() => setTutorialActive(true), 800); return () => clearTimeout(t); } }, []);
   useEffect(() => { const img = new Image(); img.onload = () => setSealOk(true); img.onerror = () => setSealOk(false); img.src = "HeroImage_CH.png"; }, []);
